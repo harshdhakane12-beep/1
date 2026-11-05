@@ -1,0 +1,173 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+
+digits = load_digits()
+
+X = digits.data
+y = digits.target
+
+df = pd.DataFrame(
+    X,
+    columns=[f"Pixel_{i}" for i in range(64)]
+)
+
+df["Target"] = y
+
+print(df.head(10))
+
+print("Dataset Shape:", X.shape)
+print("Target Shape:", y.shape)
+
+plt.figure(figsize=(8, 4))
+
+for i in range(10):
+
+    plt.subplot(2, 5, i + 1)
+
+    plt.imshow(
+        digits.images[i],
+        cmap="gray"
+    )
+
+    plt.title("Digit: " + str(digits.target[i]))
+
+    plt.axis("off")
+
+plt.tight_layout()
+plt.show()
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+print("Training Data:", X_train.shape)
+print("Testing Data:", X_test.shape)
+
+scaler = StandardScaler()
+
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+print("Features before PCA:", X_train_scaled.shape[1])
+
+knn = KNeighborsClassifier(n_neighbors=5)
+
+knn.fit(X_train_scaled, y_train)
+
+y_pred_before = knn.predict(X_test_scaled)
+
+accuracy_before = accuracy_score(
+    y_test,
+    y_pred_before
+)
+
+print(
+    "Accuracy Before PCA:",
+    round(accuracy_before * 100, 2),
+    "%"
+)
+
+pca = PCA(n_components=16)
+
+X_train_pca = pca.fit_transform(X_train_scaled)
+X_test_pca = pca.transform(X_test_scaled)
+
+print("Features Before PCA:", X_train_scaled.shape[1])
+print("Features After PCA:", X_train_pca.shape[1])
+
+pc_names = [
+    f"PC{i}" for i in range(1, 17)
+]
+
+df_pca = pd.DataFrame(
+    X_train_pca,
+    columns=pc_names
+)
+
+df_pca["Target"] = y_train
+
+print(df_pca.head(10))
+
+knn_pca = KNeighborsClassifier(n_neighbors=5)
+
+knn_pca.fit(X_train_pca, y_train)
+
+y_pred_after = knn_pca.predict(X_test_pca)
+
+accuracy_after = accuracy_score(
+    y_test,
+    y_pred_after
+)
+
+print(
+    "Accuracy After PCA:",
+    round(accuracy_after * 100, 2),
+    "%"
+)
+
+comparison = pd.DataFrame({
+    "Method": [
+        "Before PCA",
+        "After PCA"
+    ],
+
+    "Number of Features": [
+        64,
+        16
+    ],
+
+    "Accuracy (%)": [
+        round(accuracy_before * 100, 2),
+        round(accuracy_after * 100, 2)
+    ]
+})
+
+print(comparison)
+
+pca_2d = PCA(n_components=2)
+
+X_train_2d = pca_2d.fit_transform(X_train_scaled)
+
+plt.figure(figsize=(8, 6))
+
+plt.scatter(
+    X_train_2d[:, 0],
+    X_train_2d[:, 1],
+    c=y_train,
+    cmap="tab10",
+    s=15
+)
+
+plt.xlabel("Principal Component 1")
+plt.ylabel("Principal Component 2")
+
+plt.title("Digit Dataset Visualization Using PCA")
+
+plt.colorbar(label="Digit")
+
+plt.show()
+
+print(
+    "Explained Variance Ratio:",
+    pca_2d.explained_variance_ratio_
+)
+
+print(
+    "Total Explained Variance:",
+    round(
+        sum(pca_2d.explained_variance_ratio_) * 100,
+        2
+    ),
+    "%"
+)
