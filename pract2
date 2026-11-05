@@ -1,0 +1,79 @@
+from collections import deque
+import time
+
+graph = {
+    'A': ['B', 'C'],
+    'B': ['D', 'E'],
+    'C': ['F'],
+    'D': [],
+    'E': ['G'],
+    'F': [],
+    'G': []
+}
+
+start = 'A'
+goal = 'G'
+
+def bfs(graph, start, goal):
+    queue = deque([(start, [start])])
+    visited = {start}
+    traversal = []
+
+    while queue:
+        node, path = queue.popleft()
+        traversal.append(node)
+
+        if node == goal:
+            return path, traversal
+
+        for neighbor in graph[node]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append((neighbor, path + [neighbor]))
+
+    return None, traversal
+
+def dfs(graph, start, goal):
+    stack = [(start, [start])]
+    visited = set()
+    traversal = []
+
+    while stack:
+        node, path = stack.pop()
+
+        if node in visited:
+            continue
+
+        visited.add(node)
+        traversal.append(node)
+
+        if node == goal:
+            return path, traversal
+
+        for neighbor in reversed(graph[node]):
+            if neighbor not in visited:
+                stack.append((neighbor, path + [neighbor]))
+
+    return None, traversal
+
+start_time = time.perf_counter()
+bfs_path, bfs_traversal = bfs(graph, start, goal)
+bfs_time = time.perf_counter() - start_time
+
+start_time = time.perf_counter()
+dfs_path, dfs_traversal = dfs(graph, start, goal)
+dfs_time = time.perf_counter() - start_time
+
+print("===== BFS =====")
+print("Nodes Traversed:", " -> ".join(bfs_traversal))
+print("Path Found:", " -> ".join(bfs_path))
+print("Path Length:", len(bfs_path))
+print("Nodes Explored:", len(bfs_traversal))
+print("Execution Time:", bfs_time, "seconds")
+
+print("\n===== DFS =====")
+print("Nodes Traversed:", " -> ".join(dfs_traversal))
+print("Path Found:", " -> ".join(dfs_path))
+print("Path Length:", len(dfs_path))
+print("Nodes Explored:", len(dfs_traversal))
+print("Execution Time:", dfs_time, "seconds")
