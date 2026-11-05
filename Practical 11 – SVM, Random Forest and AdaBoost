@@ -1,0 +1,283 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_breast_cancer
+
+from sklearn.model_selection import (
+    train_test_split,
+    cross_val_score,
+    GridSearchCV
+)
+
+from sklearn.preprocessing import StandardScaler
+
+from sklearn.pipeline import Pipeline
+
+from sklearn.svm import SVC
+
+from sklearn.ensemble import (
+    RandomForestClassifier,
+    AdaBoostClassifier
+)
+
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    confusion_matrix,
+    classification_report
+)
+
+data = load_breast_cancer()
+
+X = pd.DataFrame(
+    data.data,
+    columns=data.feature_names
+)
+
+y = data.target
+
+print("Dataset loaded successfully!")
+print("Dataset Shape:", X.shape)
+
+print("\nFirst Five Records:")
+print(X.head())
+
+print("\nTarget Classes:", data.target_names)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.20,
+    random_state=42,
+    stratify=y
+)
+
+print("\nTraining Records:", len(X_train))
+print("Testing Records:", len(X_test))
+
+models = {
+
+    "SVM": Pipeline([
+        ("scaler", StandardScaler()),
+        ("classifier", SVC())
+    ]),
+
+    "Random Forest": RandomForestClassifier(
+        random_state=42
+    ),
+
+    "AdaBoost": AdaBoostClassifier(
+        random_state=42
+    )
+}
+
+print("\nSVM, Random Forest and AdaBoost models created.")
+
+results = []
+
+best_models = {}
+
+for name, model in models.items():
+
+    print("\n------------------------------")
+    print("Model:", name)
+    print("------------------------------")
+
+    cv_scores = cross_val_score(
+        model,
+        X_train,
+        y_train,
+        cv=5,
+        scoring="accuracy"
+    )
+
+    print(
+        "Cross-validation scores:",
+        np.round(cv_scores, 4)
+    )
+
+    print(
+        "Mean CV Accuracy:",
+        round(cv_scores.mean(), 4)
+    )
+
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+
+    results.append({
+
+        "Model": name,
+
+        "Stage": "Before Optimization",
+
+        "Accuracy": accuracy_score(y_test, y_pred),
+
+        "Precision": precision_score(y_test, y_pred),
+
+        "Recall": recall_score(y_test, y_pred),
+
+        "F1-score": f1_score(y_test, y_pred),
+
+        "CV Accuracy": cv_scores.mean()
+
+    })
+
+    print("\nClassification Report:")
+
+    print(
+        classification_report(
+            y_test,
+            y_pred,
+            target_names=data.target_names
+        )
+    )
+
+print("\nAll default models evaluated.")
+
+param_grids = {
+
+    "SVM": {
+        "classifier__C": [0.1, 1, 10],
+        "classifier__kernel": ["linear", "rbf"],
+        "classifier__gamma": ["scale", "auto"]
+    },
+
+    "Random Forest": {
+        "n_estimators": [50, 100],
+        "max_depth": [None, 5, 10],
+        "min_samples_split": [2, 5]
+    },
+
+    "AdaBoost": {
+        "n_estimators": [50, 100],
+        "learning_rate": [0.1, 1.0]
+    }
+}
+
+for name, model in models.items():
+
+    print("\n------------------------------")
+    print("Optimizing:", name)
+    print("------------------------------")
+
+    grid = GridSearchCV(
+        estimator=model,
+        param_grid=param_grids[name],
+        cv=5,
+        scoring="accuracy",
+        n_jobs=-1
+    )
+
+    grid.fit(X_train, y_train)
+
+    best_model = grid.best_estimator_
+
+    best_models[name] = best_model
+
+    print("Best Parameters:", grid.best_params_)
+
+    print(
+        "Best CV Accuracy:",
+        round(grid.best_score_, 4)
+    )
+
+    y_pred = best_model.predict(X_test)
+
+    results.append({
+
+        "Model": name,
+
+        "Stage": "After Optimization",
+
+        "Accuracy": accuracy_score(y_test, y_pred),
+
+        "Precision": precision_score(y_test, y_pred),
+
+        "Recall": recall_score(y_test, y_pred),
+
+        "F1-score": f1_score(y_test, y_pred),
+
+        "CV Accuracy": grid.best_score_
+
+    })
+
+    print("\nOptimized Classification Report:")
+
+    print(
+        classification_report(
+            y_test,
+            y_pred,
+            target_names=data.target_names
+        )
+    )
+
+print("\nHyperparameter tuning completed.")
+
+results_df = pd.DataFrame(results)
+
+print("\nFINAL MODEL COMPARISON")
+
+print(results_df.round(4))
+
+accuracy_table = results_df.pivot(
+    index="Model",
+    columns="Stage",
+    values="Accuracy"
+)
+
+accuracy_table.plot(
+    kind="bar",
+    figsize=(9, 5)
+)
+
+plt.title("Accuracy Before and After Optimization")
+plt.xlabel("Machine Learning Models")
+plt.ylabel("Accuracy")
+plt.ylim(0, 1.05)
+plt.xticks(rotation=0)
+plt.grid(axis="y", alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+for name, model in best_models.items():
+
+    y_pred = model.predict(X_test)
+
+    cm = confusion_matrix(y_test, y_pred)
+
+    plt.figure(figsize=(5, 4))
+
+    plt.imshow(
+        cm,
+        interpolation="nearest",
+        cmap="Blues"
+    )
+
+    plt.title(name + " - Confusion Matrix")
+
+    plt.colorbar()
+
+    plt.xticks([0, 1], data.target_names)
+    plt.yticks([0, 1], data.target_names)
+
+    for i in range(2):
+        for j in range(2):
+
+            plt.text(
+                j,
+                i,
+                cm[i, j],
+                ha="center",
+                va="center",
+                color="black"
+            )
+
+    plt.xlabel("Predicted Class")
+    plt.ylabel("Actual Class")
+
+    plt.tight_layout()
+    plt.show()
